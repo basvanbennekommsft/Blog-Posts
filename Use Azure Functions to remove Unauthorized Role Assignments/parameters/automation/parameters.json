@@ -1,0 +1,127 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"subscriptionId": {
+			"value": "c0a99484-f765-4351-b2a7-f3098bb74f1f"
+		},
+		"storageAccount": {
+			"value": {
+				"skuName": "Standard_LRS",
+				"kind": "StorageV2",
+				"accessTier": "Hot",
+				"allowBlobPublicAccess": true,
+				"allowedCopyScope": "AAD",
+				"allowSharedKeyAccess": true,
+				"defaultToOAuthAuthentication": true,
+				"encryptionServicesBlobSettings": {
+					"enabled": true,
+					"keyType": "Account"
+				},
+				"encryptionServicesFileSettings": {
+					"enabled": true,
+					"keyType": "Account"
+				},
+				"encryptionServicesQueueSettings": {
+					"enabled": true,
+					"keyType": "Account"
+				},
+				"encryptionServicesTableSettings": {
+					"enabled": true,
+					"keyType": "Account"
+				},
+				"networkAclsBypass": "AzureServices",
+				"networkAclsDefaultAction": "Allow"
+			}
+		},
+		"applicationInsights": {
+			"value": {
+				"kind": "web",
+				"ingestionMode": "LogAnalytics",
+				"retentionInDays": 90,
+				"samplingPercentage": 100,
+				"workspaceResourceId": "/subscriptions/c0a99484-f765-4351-b2a7-f3098bb74f1f/resourceGroups/alz-man-p-weu-rg-01/providers/Microsoft.OperationalInsights/workspaces/test"
+			}
+		},
+		"appServicePlan": {
+			"value": {
+				"sku": {
+					"capacity": 0,
+					"family": "Y",
+					"name": "Y1",
+					"size": "Y1",
+					"tier": "Dynamic"
+				},
+				"kind": "functionapp",
+				"maximumElasticWorkerCount": 1,
+				"targetWorkerCount": 0,
+				"targetWorkerSizeId": 0,
+				"zoneRedundant": false
+			}
+		},
+		"functionApp": {
+			"value": {
+				"kind": "functionapp",
+				"systemAssignedManagedIdentity": true,
+				"containerSize": 1536,
+				"dailyMemoryTimeQuota": 0,
+				"appSettings": [],
+				"cors": {
+					"allowedOrigins": [
+						"https://portal.azure.com"
+					],
+					"supportCredentials": false
+				},
+				"defaultDocuments": [
+					"Default.htm",
+					"Default.html",
+					"Default.asp",
+					"index.htm",
+					"index.html",
+					"iisstart.htm",
+					"default.aspx",
+					"index.php"
+				],
+				"functionAppScaleLimit": 200,
+				"ipSecurityRestrictions": [
+					{
+						"ipAddress": "ActionGroup",
+						"action": "Allow",
+						"tag": "ServiceTag",
+						"priority": 100,
+						"name": "allowActionGroup",
+						"description": "Allow traffic from Action Groups"
+					},
+					{
+						"ipAddress": "Any",
+						"action": "Deny",
+						"priority": 2147483647,
+						"name": "Deny all",
+						"description": "Deny all access"
+					}
+				],
+				"loadBalancing": "LeastRequests",
+				"logsDirectorySizeLimit": 35,
+				"minimumElasticInstanceCount": 0,
+				"netFrameworkVersion": "v6.0",
+				"numberOfWorkers": 1,
+				"powerShellVersion": "7.2",
+				"preWarmedInstanceCount": 0,
+				"scmIpSecurityRestrictions": [
+					{
+						"ipAddress": "Any",
+						"action": "Allow",
+						"priority": 2147483647,
+						"name": "Allow all",
+						"description": "Allow all access"
+					}
+				],
+				"scmType": "None",
+				"vnetPrivatePortsCount": 0,
+				"vnetContentShareEnabled": false,
+				"vnetImagePullEnabled": false,
+				"vnetRouteAllEnabled": false
+			}
+		}
+	}
+}
