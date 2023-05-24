@@ -1,0 +1,102 @@
+trigger: none
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  - name: subscriptionId
+    value: "<REPLACE>"
+  - name: azureSubscription
+    value: "<REPLACE>"
+  - name: location
+    value: "<REPLACE>"
+  - name: roleDefinitionName
+    value: "Owner"
+  - name: managementGroupName
+    value: "<REPLACE>"
+  - name: automationParameterFilePath
+    value: "$(System.DefaultWorkingDirectory)/management/monitoring/parameters/automation/parameters.json"
+  - name: automationtemplateFilePath
+    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/automation/deploy.bicep"
+  - name: removeUnauthorizedRoleAssignmentFunctionFolder
+    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/functions/removeRoleAssignment"
+  - name: functionAppName
+    value: "<REPLACE>"
+  - name: monitoringParameterFilePath
+    value: "$(System.DefaultWorkingDirectory)/management/monitoring/parameters/monitoring/parameters.json"
+  - name: monitoringtemplateFilePath
+    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/monitoring/deploy.bicep"
+
+stages:
+  - stage: automation
+    displayName: Automation
+    jobs:
+      - job: deployAutomationResources
+        displayName: Deploy Automation Resources
+        steps:
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: Deploy Storage Account, Application Insights, App Service Plan and Function App
+            inputs:
+              deploymentScope: "Subscription"
+              azureResourceManagerConnection: "<REPLACE>"
+              subscriptionId: ${{ variables.subscriptionId }}
+              location: ${{ variables.location }}
+              templateLocation: "Linked artifact"
+              csmFile: ${{ variables.automationtemplateFilePath }}
+              csmParametersFile: ${{ variables.automationParameterFilePath }}
+              deploymentMode: "Incremental"
+          - task: AzurePowerShell@5
+            displayName: Deploy Role Assignment for Managed Identity
+            inputs:
+              azureSubscription: "<REPLACE>"
+              ScriptType: "FilePath"
+              ScriptPath: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/automation/New-RoleAssignment.ps1"
+              ScriptArguments: -SubscriptionId ${{ variables.subscriptionId }}
+                -AutomationResourcesParameterFilePath $(System.DefaultWorkingDirectory)/management/monitoring/parameters/automation/parameters.json
+                -Location ${{ variables.location }}
+                -RoleDefinitionName ${{ variables.roleDefinitionName }}
+                -ManagementGroupName ${{ variables.managementGroupName }}
+              azurePowerShellVersion: LatestVersion
+
+  - stage: Function
+    displayName: Function
+    jobs:
+      - job: deployRemoveUnauthorizedRoleAssignmentFunction
+        displayName: Deploy 'Remove-Unauthorized-Role-Assignment' Function
+        steps:
+          - task: ArchiveFiles@2
+            displayName: "Archive Files"
+            inputs:
+              rootFolderOrFile: ${{ variables.removeUnauthorizedRoleAssignmentFunctionFolder }}
+              includeRootFolder: false
+              archiveFile: "$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip"
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Files"
+            inputs:
+              PathtoPublish: "$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip"
+              artifactName: "drop"
+          - task: AzureFunctionApp@1
+            displayName: "Deploy Function"
+            inputs:
+              azureSubscription: <REPLACE>
+              appType: functionApp
+              appName: ${{ variables.functionAppName }}
+              package: $(System.DefaultWorkingDirectory)/**/*.zip
+
+  - stage: monitoring
+    displayName: Monitoring
+    jobs:
+      - job: deployMonitoringResources
+        displayName: Deploy Monitoring Resources
+        steps:
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: Deploy Action Group and Scheduled Query Alert
+            inputs:
+              deploymentScope: "Subscription"
+              azureResourceManagerConnection: "<REPLACE>"
+              subscriptionId: ${{ variables.subscriptionId }}
+              location: ${{ variables.location }}
+              templateLocation: "Linked artifact"
+              csmFile: ${{ variables.monitoringtemplateFilePath }}
+              csmParametersFile: ${{ variables.monitoringParameterFilePath }}
+              deploymentMode: "Incremental"

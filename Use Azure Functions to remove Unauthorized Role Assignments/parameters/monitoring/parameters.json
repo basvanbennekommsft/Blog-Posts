@@ -3,21 +3,14 @@
 	"contentVersion": "1.0.0.0",
 	"parameters": {
 		"subscriptionId": {
-			"value": "c0a99484-f765-4351-b2a7-f3098bb74f1f"
+			"value": "<REPLACE>"
 		},
 		"functionName": {
 			"value": "Remove-Unauthorized-Role-Assignment"
 		},
 		"actionGroup": {
 			"value": {
-				"actionGroupShortName": "monitor-role",
-				"emailReceivers": [
-					{
-						"name": "CCoE-Distribution-List",
-						"emailAddress": "CCoE@minbzk.nl",
-						"useCommonAlertSchema": true
-					}
-				]
+				"actionGroupShortName": "monitor-role"
 			}
 		},
 		"scheduledQueryRuleUnauthorizedRoleAssignments": {
@@ -27,13 +20,13 @@
 				"minFailingPeriodsToAlert": 1,
 				"numberOfEvaluationPeriods": 1,
 				"operator": "GreaterThan",
-				"query": "AzureActivity\n| where CategoryValue =~ \"Administrative\" and OperationNameValue =~ \"Microsoft.Authorization/roleAssignments/write\"and ActivityStatusValue =~ \"Success\" // Only select the creation of Role Assignments that succeeded\n| where _ResourceId matches regex \"^\\\\/subscriptions\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\\\\/providers\\\\/microsoft\\\\.authorization\\\\/roleassignments\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$\" or _ResourceId matches regex \"^\\\\/subscriptions\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\\\\/resourcegroups\\\\/[a-zA-Z0-9._\\\\-()]+\\\\/providers\\\\/microsoft\\\\.authorization\\\\/roleassignments\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$\" // Only select the creation of Role Assignments on the Subscription or Resource Group scope\n| where _SubscriptionId != \"c420b74f-cd02-4d76-9dc7-ea41b1b8da07\" and _SubscriptionId != \"52709448-3ddd-49d0-9fd9-2ff03c85e9ff\" // Exclude the creation of Role Assignments on the Subscriptions (c420b74f-cd02-4d76-9dc7-ea41b1b8da07) hosting the Sandbox environments\n| where Caller != \"87794bfc-4bf9-4695-b010-154387cedcc3\"// Only select the creation of Role Assignments not conducted Privileged Identity Management (87794bfc-4bf9-4695-b010-154387cedcc3)\n| project TimeGenerated, Caller, _SubscriptionId, _ResourceId // Only project information on when the Role Assignment is created, by whom, and on what Azure resource\n\n",
+				"query": "AzureActivity\n| where CategoryValue =~ \"Administrative\" and OperationNameValue =~ \"Microsoft.Authorization/roleAssignments/write\"and ActivityStatusValue =~ \"Success\" // Only select the creation of Role Assignments that succeeded\n| where _ResourceId matches regex \"^\\\\/subscriptions\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\\\\/providers\\\\/microsoft\\\\.authorization\\\\/roleassignments\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$\" or _ResourceId matches regex \"^\\\\/subscriptions\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\\\\/resourcegroups\\\\/[a-zA-Z0-9._\\\\-()]+\\\\/providers\\\\/microsoft\\\\.authorization\\\\/roleassignments\\\\/[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$\" // Only select the creation of Role Assignments on the Subscription or Resource Group scope\n| where Caller != \"87794bfc-4bf9-4695-b010-154387cedcc3\"// Only select the creation of Role Assignments not conducted Privileged Identity Management (87794bfc-4bf9-4695-b010-154387cedcc3)\n| project TimeGenerated, Caller, _SubscriptionId, _ResourceId // Only project information on when the Role Assignment is created, by whom, and on what Azure resource\n\n",
 				"resourceIdColumn": "_ResourceId",
 				"threshold": 0,
 				"timeAggregation": "Count",
 				"scheduledRuleQueryDescription": "This Scheduled Query Rule fires when an unauthorized Role Assignment has been created.",
 				"evaluationFrequency": "PT5M",
-				"logAnalyticsWorkspaceId": "/subscriptions/c0a99484-f765-4351-b2a7-f3098bb74f1f/resourceGroups/alz-man-p-weu-rg-01/providers/Microsoft.OperationalInsights/workspaces/test",
+				"logAnalyticsWorkspaceId": "<REPLACE>",
 				"severity": 2,
 				"windowSize": "PT5M"
 			}

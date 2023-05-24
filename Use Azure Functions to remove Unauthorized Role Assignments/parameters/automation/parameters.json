@@ -3,7 +3,7 @@
 	"contentVersion": "1.0.0.0",
 	"parameters": {
 		"subscriptionId": {
-			"value": "c0a99484-f765-4351-b2a7-f3098bb74f1f"
+			"value": "<REPLACE>"
 		},
 		"storageAccount": {
 			"value": {
@@ -40,7 +40,7 @@
 				"ingestionMode": "LogAnalytics",
 				"retentionInDays": 90,
 				"samplingPercentage": 100,
-				"workspaceResourceId": "/subscriptions/c0a99484-f765-4351-b2a7-f3098bb74f1f/resourceGroups/alz-man-p-weu-rg-01/providers/Microsoft.OperationalInsights/workspaces/test"
+				"workspaceResourceId": "<REPLACE>"
 			}
 		},
 		"appServicePlan": {

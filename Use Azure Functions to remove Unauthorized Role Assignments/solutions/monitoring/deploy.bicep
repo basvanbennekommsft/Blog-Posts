@@ -48,7 +48,6 @@ module actionGroupDeployment '../../modules/actionGroup.bicep' = {
         location: 'Global'
         actionGroupName: '${standardNamingConventionPrefix}-01-ag'
         actionGroupShortName: actionGroup.actionGroupShortName
-        emailReceivers: actionGroup.emailReceivers
         azureFunctionReceivers: [
             {
                 functionAppResourceId: existingFunctionApp.id
