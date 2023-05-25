@@ -17,4 +17,4 @@ The deployment of the solution is split over three seperate stages.
 
 The reason that the YAML pipeline is build in this way is because of dependencies. For instance, the Function needs to be deployed on the Function App before you can target it in the Action Group. If you would like to use the artifacts in this repository to deploy the solution, you need to change all the <REPLACE> items (e.g. Service Connection) as these differ per user. On top of that, the YAML pipeline is based on Azure Pipelines and thus needs to be tweaked when you would like to use another deployment method such as GitHub Actions.
 
-If anything is unclear or needs improvement, feel free to reach out to me!
+If anything is unclear or needs improvement, feel free to reach out to me or create a Pull Request yourself.
