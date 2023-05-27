@@ -9,7 +9,7 @@ This blogpost elaborates on the solution that was built to enforce the creation 
 
 # Deployment
 
-The deployment of the solution is split over three seperate stages.
+The deployment of the solution is split across three separate stages.
 
 1. Automation: this stage in the YAML pipeline deploys the standard automation resources (e.g. Storage Account) and the Role Assignment for the System-assigned Managed Identity
 2. Function: this stage in the YAML pipeline zips the artifacts of the Function and subsequently uses these to deploy the Function on the Function App
