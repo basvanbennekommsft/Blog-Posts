@@ -15,17 +15,17 @@ variables:
   - name: managementGroupName
     value: "<REPLACE>"
   - name: automationParameterFilePath
-    value: "$(System.DefaultWorkingDirectory)/management/monitoring/parameters/automation/parameters.json"
+    value: "$(System.DefaultWorkingDirectory)/parameters/automation/parameters.json"
   - name: automationtemplateFilePath
-    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/automation/deploy.bicep"
+    value: "$(System.DefaultWorkingDirectory)/solutions/automation/deploy.bicep"
   - name: removeUnauthorizedRoleAssignmentFunctionFolder
-    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/functions/removeRoleAssignment"
+    value: "$(System.DefaultWorkingDirectory)/solutions/function/removeRoleAssignment"
   - name: functionAppName
     value: "<REPLACE>"
   - name: monitoringParameterFilePath
-    value: "$(System.DefaultWorkingDirectory)/management/monitoring/parameters/monitoring/parameters.json"
+    value: "$(System.DefaultWorkingDirectory)/parameters/monitoring/parameters.json"
   - name: monitoringtemplateFilePath
-    value: "$(System.DefaultWorkingDirectory)/management/monitoring/deploymentFiles/monitoring/deploy.bicep"
+    value: "$(System.DefaultWorkingDirectory)/solutions/monitoring/deploy.bicep"
 
 stages:
   - stage: automation
