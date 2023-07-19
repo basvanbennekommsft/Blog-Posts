@@ -1,6 +1,6 @@
 # Introduction
 
-This blogpost elaborates on the solution that was built to enforce the creation of Role Assignments at the resource scope only. Under this Markdown file, there are four folders, each serving a different purpose.
+This [blogpost](https://techcommunity.microsoft.com/t5/core-infrastructure-and-security/use-azure-functions-to-remove-unauthorized-role-assignments/ba-p/3835628) elaborates on the solution that was built to enforce the creation of Role Assignments at the resource scope only. Under this Markdown file, there are four folders, each serving a different purpose.
 
 1. modules: this folder contains all the Bicep modules used to deploy the Azure services (e.g. Azure Function)
 2. parameters: this folder contains all the parameters needed to deploy the artifacts in the solutions folder

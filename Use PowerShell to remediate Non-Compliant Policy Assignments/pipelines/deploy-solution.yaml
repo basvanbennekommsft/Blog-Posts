@@ -1,0 +1,76 @@
+schedules:
+  - cron: "0 0 * * *"
+    displayName: Nightly Run
+    branches:
+      include:
+        - main
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: keyVaultName
+    displayName: Key Vault Name
+    type: string
+    default: <REPLACE>
+  - name: secretName
+    displayName: Secret Name
+    type: string
+    default: <REPLACE>
+  - name: moduleName
+    displayName: Module Name
+    type: string
+    default: VSTeam
+  - name: organizationName
+    displayName: Azure DevOps Organization Name
+    type: string
+    default: <REPLACE>
+  - name: projectName
+    displayName: Azure DevOps Project Name
+    type: string
+    default: <REPLACE>
+  - name: teamName
+    displayName: Azure DevOps Team Name
+    type: string
+    default: <REPLACE>
+
+jobs:
+  - job: completeSolution
+    displayName: Complete Solution
+    steps:
+      - task: AzureKeyVault@2
+        name: retrievePersonalAccessToken
+        displayName: Retrieve Personal Access Token
+        inputs:
+          azureSubscription: "<REPLACE>"
+          KeyVaultName: ${{parameters.keyVaultName}}
+          SecretsFilter: ${{parameters.secretName}}
+          RunAsPreJob: true
+
+      - task: AzurePowerShell@5
+        name: startPolicyAssignmentRemediation
+        displayName: Start Policy Assignment Remediation
+        inputs:
+          azureSubscription: "<REPLACE>"
+          ScriptType: "FilePath"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Assignments/solutions/Start-PolicyAssignmentRemediation.ps1"
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
+
+      - task: AzurePowerShell@5
+        condition: eq(variables['startPolicyAssignmentRemediation.createAzureDevOpsBug'], 'true')
+        name: createAzureDevOpsBug
+        displayName: Create Azure DevOps Bug
+        inputs:
+          azureSubscription: "<REPLACE>"
+          ScriptType: "FilePath"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Assignments/solutions/Create-AzureDevOpsBug.ps1"
+          ScriptArguments:
+            -FailedPolicyRemediationTasksJsonString '$(startPolicyAssignmentRemediation.failedPolicyRemediationTasksJsonString)'
+            -ModuleName ${{parameters.moduleName}}
+            -OrganizationName ${{parameters.organizationName}}
+            -ProjectName ${{parameters.projectName}}
+            -PersonalAccessToken $(PersonalAccessToken)
+            -TeamName '${{parameters.teamName}}'
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
