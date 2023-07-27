@@ -3,7 +3,7 @@ schedules:
     displayName: Nightly Run
     branches:
       include:
-        - main
+        - master
 
 pool:
   vmImage: ubuntu-latest
@@ -15,6 +15,10 @@ parameters:
     default: <REPLACE>
   - name: secretName
     displayName: Secret Name
+    type: string
+    default: <REPLACE>
+  - name: managementGroupName
+    displayName: Management Group Name
     type: string
     default: <REPLACE>
   - name: moduleName
@@ -48,25 +52,27 @@ jobs:
           RunAsPreJob: true
 
       - task: AzurePowerShell@5
-        name: startPolicyAssignmentRemediation
-        displayName: Start Policy Assignment Remediation
+        name: startPolicyDefinitionRemediation
+        displayName: Start Policy Definition Remediation
         inputs:
           azureSubscription: "<REPLACE>"
           ScriptType: "FilePath"
-          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Assignments/solutions/Start-PolicyAssignmentRemediation.ps1"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Start-PolicyDefinitionRemediation.ps1"
+          ScriptArguments:
+            -ManagementGroupName ${{parameters.managementGroupName}}
           azurePowerShellVersion: LatestVersion
           pwsh: true
 
       - task: AzurePowerShell@5
-        condition: eq(variables['startPolicyAssignmentRemediation.createAzureDevOpsBug'], 'true')
+        condition: eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true')
         name: createAzureDevOpsBug
         displayName: Create Azure DevOps Bug
         inputs:
           azureSubscription: "<REPLACE>"
           ScriptType: "FilePath"
-          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Assignments/solutions/Create-AzureDevOpsBug.ps1"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Create-AzureDevOpsBug.ps1"
           ScriptArguments:
-            -FailedPolicyRemediationTasksJsonString '$(startPolicyAssignmentRemediation.failedPolicyRemediationTasksJsonString)'
+            -FailedPolicyRemediationTasksJsonString '$(startPolicyDefinitionRemediation.failedPolicyRemediationTasksJsonString)'
             -ModuleName ${{parameters.moduleName}}
             -OrganizationName ${{parameters.organizationName}}
             -ProjectName ${{parameters.projectName}}
@@ -74,3 +80,5 @@ jobs:
             -TeamName '${{parameters.teamName}}'
           azurePowerShellVersion: LatestVersion
           pwsh: true
+
+

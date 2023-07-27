@@ -1,24 +1,34 @@
 <#
   .SYNOPSIS
-  This PowerShell script remediates non-compliant Policy Assignments by creating one or multiple Remediation Tasks.
+  This PowerShell script remediates non-compliant Policy Definitions by creating one or multiple Remediation Tasks.
 
   .DESCRIPTION
-  The Start-PolicyAssignmentRemediation.ps1 PowerShell script checks the Azure Policy state. When there are one or
-  multiple non-compliant Policy Assignments, the PowerShell script creates a Remediation Task for each and every
+  The Start-PolicyDefinitionRemediation.ps1 PowerShell script checks the Azure Policy state. When there are one or
+  multiple non-compliant Policy Definitions, the PowerShell script creates a Remediation Task for each and every
   one of them. If one or multiple Remediation Tasks fail, their respective objects are added to a PowerShell
   variable for that is outputted for later use in the Azure DevOps Pipeline.
 
+  .PARAMETER ManagementGroupName
+  Specifies the Management Group for which the Azure Policy state is retrieved.
+
   .EXAMPLE
-  Start-PolicyAssignmentRemediation.ps1
+  Start-PolicyDefinitionRemediation.ps1 `
+    -ManagementGroupName 'fc783d0b-3ab9-463d-96b0-3f235c100906'
 
   .INPUTS
   None.
 
   .OUTPUTS
-  The Start-PolicyAssignmentRemediation.ps1 PowerShell script outputs multiple string values for logging purposes,
+  The Start-PolicyDefinitionRemediation.ps1 PowerShell script outputs multiple string values for logging purposes,
   a JSON string containing all the failed Remediation Tasks and a boolean value, both of which are used in a later
   stage of the Azure DevOps Pipeline.
 #>
+
+[CmdLetBinding()]
+Param (
+    [Parameter (Mandatory = $true)]
+    [String] $ManagementGroupName
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -30,26 +40,43 @@ $yesterday = $today.AddDays(-1)
 $createAzureDevOpsBug = $false
 #endregion
 
-#region Get the Azure Policy state and select all the unique non-compliant Policy Assignments
-Write-Output "`nGet the Azure Policy state for the '$($yesterday.DateTime) - $($today.DateTime)' time period"
-$complianceState = Get-AzPolicyState -From $yesterday -To $today
+#region Get the Azure Policy state and select all the unique non-compliant Policy Definitions
+Write-Output "`nGet the Azure Policy state for all the resources under the '$($ManagementGroupName)' Management Group"
+$complianceState = Get-AzPolicyState -ManagementGroupName $ManagementGroupName -From $yesterday -To $today
 
 Write-Verbose "`nSelect all the non-compliant instances"
 $nonCompliantInstances = $complianceState | Where-Object -FilterScript { $_.ComplianceState -eq 'NonCompliant' }
 
-Write-Verbose "`nSelect all the unique non-compliant Policy Assignments"
-$noncompliantPolicyAssignments = $nonCompliantInstances | Select-Object -Property PolicyAssignmentId, PolicyAssignmentName -Unique
-Write-Output "`At the moment, there is/are '$($noncompliantPolicyAssignments.Count)' unique non-compliant Policy Assignment(s)"
+Write-Verbose "`nSelect all the unique non-compliant Policy Definitions"
+$noncompliantPolicyDefinitions = $nonCompliantInstances | Select-Object -Property PolicyDefinitionName, PolicyDefinitionReferenceId, PolicyAssignmentId, PolicyAssignmentScope -Unique
+Write-Output "`At the moment, there is/are '$($noncompliantPolicyDefinitions.Count)' unique non-compliant Policy Definition(s)"
 #endregion
 
-#region Create a Remediation Task for the non-compliant Policy Assignments
+#region Create a Remediation Task for each of the non-compliant Policy Definitions
 $failedPolicyRemediationTasks = @()
-foreach ($noncompliantPolicyAssignment in $noncompliantPolicyAssignments) {
-    Write-Output "`nThe '$($noncompliantPolicyAssignment.PolicyAssignmentName)' Policy Assignment is not compliant and thus needs to be remediated"
+foreach ($noncompliantPolicyDefinition in $noncompliantPolicyDefinitions) {
+    Write-Output "`nThe '$($noncompliantPolicyDefinition.PolicyDefinitionName)' Policy Definition, assigned by the '$($noncompliantPolicyDefinition.PolicyAssignmentId.Split("/")[-1])' Policy Assignment is not compliant and thus needs to be remediated"
     try {
-        $newPolicyRemediationTask = Start-AzPolicyRemediation -Name $noncompliantPolicyAssignment.PolicyAssignmentName -PolicyAssignmentId $noncompliantPolicyAssignment.PolicyAssignmentId
+        if (!($noncompliantPolicyDefinition.PolicyDefinitionReferenceId)) {
+            Write-Verbose "`tThe '$($noncompliantPolicyDefinition.PolicyDefinitionName)' Policy Definition is not part of a Policy Set. Therefore, the 'Start-AzPolicyRemediation' command does not use the -PolicyDefinitionReferenceId parameter"
+            $params = @{
+                'Name'               = $noncompliantPolicyDefinition.PolicyDefinitionName
+                'PolicyAssignmentId' = $noncompliantPolicyDefinition.PolicyAssignmentId
+                'Scope'              = $noncompliantPolicyDefinition.PolicyAssignmentScope
+            }
+        }
+        else {
+            Write-Verbose "`tThe '$($noncompliantPolicyDefinition.PolicyDefinitionName)' Policy Definition is part of a Policy Set. Therefore, the 'Start-AzPolicyRemediation' command does use the -PolicyDefinitionReferenceId parameter"
+            $params = @{
+                'Name'                        = $noncompliantPolicyDefinition.PolicyDefinitionName
+                'PolicyAssignmentId'          = $noncompliantPolicyDefinition.PolicyAssignmentId
+                'Scope'                       = $noncompliantPolicyDefinition.PolicyAssignmentScope
+                'PolicyDefinitionReferenceId' = $noncompliantPolicyDefinition.PolicyDefinitionReferenceId
+            }
+        }
+        $newPolicyRemediationTask = Start-AzPolicyRemediation @params
         if ($newPolicyRemediationTask.ProvisioningState -eq 'Succeeded') {
-            Write-Output "`tThe provisioning state of the Remediation Task is set to Succeeded. Moving on to the next non-compliant Policy Assignment"
+            Write-Output "`tThe provisioning state of the Remediation Task is set to Succeeded. Moving on to the next non-compliant Policy Definition"
         }
         elseif ($newPolicyRemediationTask.ProvisioningState -eq 'Failed') {
             Write-Output "`tThe provisioning state of the Remediation Task is set to Failed. Adding it to the array of failed Remediation Tasks"
@@ -67,7 +94,7 @@ foreach ($noncompliantPolicyAssignment in $noncompliantPolicyAssignments) {
                 Start-Sleep -Seconds 60
                 $existingPolicyRemediationTask = Get-AzPolicyRemediation -ResourceId $newPolicyRemediationTask.Id
                 if ($existingPolicyRemediationTask.ProvisioningState -eq 'Succeeded') {
-                    Write-Output "`tThe provisioning state of the Remediation Task has changed to Succeeded. Moving on to the next non-compliant Policy Assignment"
+                    Write-Output "`tThe provisioning state of the Remediation Task has changed to Succeeded. Moving on to the next non-compliant Policy Definition"
                 }
                 elseif ($existingPolicyRemediationTask.ProvisioningState -eq 'Failed') {
                     Write-Output "`tThe provisioning state of the Remediation Task has changed to Failed. Adding it to the array of failed Remediation Tasks"
