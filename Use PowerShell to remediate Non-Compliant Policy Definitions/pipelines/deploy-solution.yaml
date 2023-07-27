@@ -3,7 +3,7 @@ schedules:
     displayName: Nightly Run
     branches:
       include:
-        - master
+        - main
 
 pool:
   vmImage: ubuntu-latest
@@ -15,10 +15,6 @@ parameters:
     default: <REPLACE>
   - name: secretName
     displayName: Secret Name
-    type: string
-    default: <REPLACE>
-  - name: managementGroupName
-    displayName: Management Group Name
     type: string
     default: <REPLACE>
   - name: moduleName
@@ -58,8 +54,6 @@ jobs:
           azureSubscription: "<REPLACE>"
           ScriptType: "FilePath"
           ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Start-PolicyDefinitionRemediation.ps1"
-          ScriptArguments:
-            -ManagementGroupName ${{parameters.managementGroupName}}
           azurePowerShellVersion: LatestVersion
           pwsh: true
 

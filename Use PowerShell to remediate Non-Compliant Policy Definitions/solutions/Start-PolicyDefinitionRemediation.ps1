@@ -8,12 +8,8 @@
   one of them. If one or multiple Remediation Tasks fail, their respective objects are added to a PowerShell
   variable for that is outputted for later use in the Azure DevOps Pipeline.
 
-  .PARAMETER ManagementGroupName
-  Specifies the Management Group for which the Azure Policy state is retrieved.
-
   .EXAMPLE
-  Start-PolicyDefinitionRemediation.ps1 `
-    -ManagementGroupName 'fc783d0b-3ab9-463d-96b0-3f235c100906'
+  Start-PolicyDefinitionRemediation.ps1
 
   .INPUTS
   None.
@@ -23,12 +19,6 @@
   a JSON string containing all the failed Remediation Tasks and a boolean value, both of which are used in a later
   stage of the Azure DevOps Pipeline.
 #>
-
-[CmdLetBinding()]
-Param (
-    [Parameter (Mandatory = $true)]
-    [String] $ManagementGroupName
-)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -41,8 +31,8 @@ $createAzureDevOpsBug = $false
 #endregion
 
 #region Get the Azure Policy state and select all the unique non-compliant Policy Definitions
-Write-Output "`nGet the Azure Policy state for all the resources under the '$($ManagementGroupName)' Management Group"
-$complianceState = Get-AzPolicyState -ManagementGroupName $ManagementGroupName -From $yesterday -To $today
+Write-Output "`nGet the Azure Policy state and select all the unique non-compliant Policy Definitions"
+$complianceState = Get-AzPolicyState -From $yesterday -To $today
 
 Write-Verbose "`nSelect all the non-compliant instances"
 $nonCompliantInstances = $complianceState | Where-Object -FilterScript { $_.ComplianceState -eq 'NonCompliant' }
@@ -62,7 +52,6 @@ foreach ($noncompliantPolicyDefinition in $noncompliantPolicyDefinitions) {
             $params = @{
                 'Name'               = $noncompliantPolicyDefinition.PolicyDefinitionName
                 'PolicyAssignmentId' = $noncompliantPolicyDefinition.PolicyAssignmentId
-                'Scope'              = $noncompliantPolicyDefinition.PolicyAssignmentScope
             }
         }
         else {
@@ -70,7 +59,6 @@ foreach ($noncompliantPolicyDefinition in $noncompliantPolicyDefinitions) {
             $params = @{
                 'Name'                        = $noncompliantPolicyDefinition.PolicyDefinitionName
                 'PolicyAssignmentId'          = $noncompliantPolicyDefinition.PolicyAssignmentId
-                'Scope'                       = $noncompliantPolicyDefinition.PolicyAssignmentScope
                 'PolicyDefinitionReferenceId' = $noncompliantPolicyDefinition.PolicyDefinitionReferenceId
             }
         }
