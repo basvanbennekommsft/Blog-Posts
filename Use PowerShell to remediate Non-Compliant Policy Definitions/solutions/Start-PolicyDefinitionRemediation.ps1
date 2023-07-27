@@ -38,7 +38,7 @@ Write-Verbose "`nSelect all the non-compliant instances"
 $nonCompliantInstances = $complianceState | Where-Object -FilterScript { $_.ComplianceState -eq 'NonCompliant' }
 
 Write-Verbose "`nSelect all the unique non-compliant Policy Definitions"
-$noncompliantPolicyDefinitions = $nonCompliantInstances | Select-Object -Property PolicyDefinitionName, PolicyDefinitionReferenceId, PolicyAssignmentId, PolicyAssignmentScope -Unique
+$noncompliantPolicyDefinitions = $nonCompliantInstances | Select-Object -Property PolicyDefinitionName, PolicyDefinitionReferenceId, PolicyAssignmentId -Unique
 Write-Output "`At the moment, there is/are '$($noncompliantPolicyDefinitions.Count)' unique non-compliant Policy Definition(s)"
 #endregion
 
