@@ -19,7 +19,7 @@ parameters:
     type: string
     default: <REPLACE>
 
-  # Azure DevOps Parameters (use when the tooling parameter is set to AzureDevOps)
+  # Azure DevOps Parameters (use when the 'tooling' parameter is set to AzureDevOps)
   - name: moduleName
     displayName: Module Name
     type: string
@@ -37,7 +37,7 @@ parameters:
     type: string
     default: <REPLACE>
 
-  # GitHub Parameters (use when the tooling parameter is set to GitHub)
+  # GitHub Parameters (use when the 'tooling' parameter is set to GitHub)
   - name: gitHubOrganizationName
     displayName: GitHub Organization Name
     type: string
