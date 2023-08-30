@@ -10,7 +10,7 @@ pool:
 
 parameters:
   # Generic Parameters
-  - name: tooling
+  - name: tooling # This parameter determines whether an Issue in GitHub, or a Bug in Azure DevOps is created
     displayName: Tooling
     type: string
     default: AzureDevOps
