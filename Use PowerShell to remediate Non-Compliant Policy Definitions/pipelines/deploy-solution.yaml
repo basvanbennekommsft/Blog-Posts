@@ -9,30 +9,50 @@ pool:
   vmImage: ubuntu-latest
 
 parameters:
+  # Generic Parameters
+  - name: tooling
+    displayName: Tooling
+    type: string
+    default: AzureDevOps
   - name: keyVaultName
     displayName: Key Vault Name
     type: string
     default: <REPLACE>
-  - name: secretName
-    displayName: Secret Name
-    type: string
-    default: <REPLACE>
+
+  # Azure DevOps Parameters (use when the tooling parameter is set to AzureDevOps)
   - name: moduleName
     displayName: Module Name
     type: string
     default: VSTeam
-  - name: organizationName
+  - name: azureDevOpsOrganizationName
     displayName: Azure DevOps Organization Name
     type: string
     default: <REPLACE>
-  - name: projectName
+  - name: azureDevOpsProjectName
     displayName: Azure DevOps Project Name
     type: string
     default: <REPLACE>
-  - name: teamName
+  - name: azureDevOpsTeamName
     displayName: Azure DevOps Team Name
     type: string
     default: <REPLACE>
+
+  # GitHub Parameters (use when the tooling parameter is set to GitHub)
+  - name: gitHubOrganizationName
+    displayName: GitHub Organization Name
+    type: string
+    default: <REPLACE>
+  - name: gitHubRepositoryName
+    displayName: GitHub Repository Name
+    type: string
+    default: <REPLACE>
+
+variables:
+  - name: secretName
+    ${{ if eq(parameters.tooling, 'AzureDevOps')}}:
+      value: ADOPersonalAccessToken
+    ${{ if eq(parameters.tooling, 'GitHub')}}:
+      value: GHPersonalAccessToken
 
 jobs:
   - job: completeSolution
@@ -44,7 +64,7 @@ jobs:
         inputs:
           azureSubscription: "<REPLACE>"
           KeyVaultName: ${{parameters.keyVaultName}}
-          SecretsFilter: ${{parameters.secretName}}
+          SecretsFilter: ${{variables.secretName}}
           RunAsPreJob: true
 
       - task: AzurePowerShell@5
@@ -58,7 +78,8 @@ jobs:
           pwsh: true
 
       - task: AzurePowerShell@5
-        condition: eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true')
+        # Only run this task when there is a need to create a Bug in Azure DevOps
+        condition: and(eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true'), eq('${{ parameters.tooling }}', 'AzureDevOps'))
         name: createAzureDevOpsBug
         displayName: Create Azure DevOps Bug
         inputs:
@@ -68,11 +89,26 @@ jobs:
           ScriptArguments:
             -FailedPolicyRemediationTasksJsonString '$(startPolicyDefinitionRemediation.failedPolicyRemediationTasksJsonString)'
             -ModuleName ${{parameters.moduleName}}
-            -OrganizationName ${{parameters.organizationName}}
-            -ProjectName ${{parameters.projectName}}
-            -PersonalAccessToken $(PersonalAccessToken)
-            -TeamName '${{parameters.teamName}}'
+            -OrganizationName ${{parameters.azureDevOpsOrganizationName}}
+            -ProjectName ${{parameters.azureDevOpsProjectName}}
+            -PersonalAccessToken $(ADOPersonalAccessToken)
+            -TeamName '${{parameters.azureDevOpsTeamName}}'
           azurePowerShellVersion: LatestVersion
           pwsh: true
 
-
+      - task: AzurePowerShell@5
+        # Only run this task when there is a need to create an Issue in GitHub
+        condition: and(eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true'), eq('${{ parameters.tooling }}', 'GitHub'))
+        name: createGitHubIssue
+        displayName: Create GitHub Issue
+        inputs:
+          azureSubscription: "<REPLACE>"
+          ScriptType: "FilePath"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Create-GitHubIssue.ps1"
+          ScriptArguments:
+            -FailedPolicyRemediationTasksJsonString '$(startPolicyDefinitionRemediation.failedPolicyRemediationTasksJsonString)'
+            -OrganizationName ${{parameters.gitHubOrganizationName}}
+            -RepositoryName ${{parameters.gitHubRepositoryName}}
+            -PersonalAccessToken $(GHPersonalAccessToken)
+          azurePowerShellVersion: LatestVersion
+          pwsh: true
