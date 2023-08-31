@@ -14,6 +14,9 @@ parameters:
     displayName: Tooling
     type: string
     default: AzureDevOps
+    values:
+    - AzureDevOps
+    - GitHub
   - name: keyVaultName
     displayName: Key Vault Name
     type: string
@@ -24,6 +27,8 @@ parameters:
     displayName: Module Name
     type: string
     default: VSTeam
+    values:
+    - VSTeam
   - name: azureDevOpsOrganizationName
     displayName: Azure DevOps Organization Name
     type: string
@@ -50,9 +55,9 @@ parameters:
 variables:
   - name: secretName
     ${{ if eq(parameters.tooling, 'AzureDevOps')}}:
-      value: ADOPersonalAccessToken
+      value: ADOPersonalAccessToken # When you use Azure DevOps, the Personal Access Token with the name 'ADOPersonalAccessToken' should be stored in the Key Vault
     ${{ if eq(parameters.tooling, 'GitHub')}}:
-      value: GHPersonalAccessToken
+      value: GHPersonalAccessToken # When you use GitHub, the Personal Access Token with the name 'GHPersonalAccessToken' should be stored in the Key Vault
 
 jobs:
   - job: completeSolution
