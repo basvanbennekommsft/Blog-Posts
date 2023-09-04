@@ -27,7 +27,7 @@ Set-StrictMode -Version Latest
 Write-Verbose "`nSet the variables that are used in the rest of the PowerShell script"
 $today = Get-Date
 $yesterday = $today.AddDays(-1)
-$createAzureDevOpsBug = $false
+$createWorkItem = $false
 #endregion
 
 #region Get the Azure Policy state and select all the unique non-compliant Policy Definitions
@@ -112,11 +112,11 @@ if ($failedPolicyRemediationTasks.Count -ge 1) {
     Write-Output "`nUnfortunately, '$($failedPolicyRemediationTasks.Count)' Remediation Task(s) has/have failed. Outputting the failedPolicyRemediationTasksJsonString variable as for later use in the Azure DevOps Pipeline"
     $failedPolicyRemediationTasksJsonString = $failedPolicyRemediationTasks | ConvertTo-Json -Depth 10 -Compress
     Write-Output "##vso[task.setvariable variable=failedPolicyRemediationTasksJsonString;isOutput=true]$($failedPolicyRemediationTasksJsonString)"
-    $createAzureDevOpsBug = $true
+    $createWorkItem = $true
 }
 else {
     Write-Output "`nNo Remediation Tasks have failed. Ending the Azure DevOps Pipeline"
-    $createAzureDevOpsBug = $false
+    $createWorkItem = $false
 }
-Write-Output "##vso[task.setvariable variable=createAzureDevOpsBug;isOutput=true]$($createAzureDevOpsBug)"
+Write-Output "##vso[task.setvariable variable=createWorkItem;isOutput=true]$($createWorkItem)"
 #endregion

@@ -84,7 +84,7 @@ jobs:
 
       - task: AzurePowerShell@5
         # Only run this task when there is a need to create a Bug in Azure DevOps
-        condition: and(eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true'), eq('${{ parameters.tooling }}', 'AzureDevOps'))
+        condition: and(eq(variables['startPolicyDefinitionRemediation.createWorkItem'], 'true'), eq('${{ parameters.tooling }}', 'AzureDevOps'))
         name: createAzureDevOpsBug
         displayName: Create Azure DevOps Bug
         inputs:
@@ -103,7 +103,7 @@ jobs:
 
       - task: AzurePowerShell@5
         # Only run this task when there is a need to create an Issue in GitHub
-        condition: and(eq(variables['startPolicyDefinitionRemediation.createAzureDevOpsBug'], 'true'), eq('${{ parameters.tooling }}', 'GitHub'))
+        condition: and(eq(variables['startPolicyDefinitionRemediation.createWorkItem'], 'true'), eq('${{ parameters.tooling }}', 'GitHub'))
         name: createGitHubIssue
         displayName: Create GitHub Issue
         inputs:
