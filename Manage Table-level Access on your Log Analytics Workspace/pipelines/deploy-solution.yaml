@@ -1,119 +1,39 @@
-schedules:
-  - cron: "0 0 * * *"
-    displayName: Nightly Run
-    branches:
-      include:
-        - main
+# This pipeline aims to deploy table-level Role Assignments
+name: $(SourceBranchName).$(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+    - scripts/Grant-LogAnalyticsTableRoles.ps1
+    - input/logAnalyticsTableRoles.json
+
+variables:
+  - name: vmImageName
+    value: 'ubuntu-latest'
+  - name: serviceConnection
+    value: 'zm-p-g-spn-acrp-azdo-001'
+  - name: logAnalyticsTableRolesConfigFilePath
+    value: '$(System.DefaultWorkingDirectory)/input/logAnalyticsTableRoles.json'
 
 pool:
   vmImage: ubuntu-latest
 
-parameters:
-  # Generic Parameters
-  - name: tooling # This parameter determines whether an Issue in GitHub, or a Bug in Azure DevOps is created
-    displayName: Tooling
-    type: string
-    default: AzureDevOps
-    values:
-    - AzureDevOps
-    - GitHub
-  - name: keyVaultName
-    displayName: Key Vault Name
-    type: string
-    default: <REPLACE>
-
-  # Azure DevOps Parameters (use when the 'tooling' parameter is set to AzureDevOps)
-  - name: moduleName
-    displayName: Module Name
-    type: string
-    default: VSTeam
-    values:
-    - VSTeam
-  - name: azureDevOpsOrganizationName
-    displayName: Azure DevOps Organization Name
-    type: string
-    default: <REPLACE>
-  - name: azureDevOpsProjectName
-    displayName: Azure DevOps Project Name
-    type: string
-    default: <REPLACE>
-  - name: azureDevOpsTeamName
-    displayName: Azure DevOps Team Name
-    type: string
-    default: <REPLACE>
-
-  # GitHub Parameters (use when the 'tooling' parameter is set to GitHub)
-  - name: gitHubOrganizationName
-    displayName: GitHub Organization Name
-    type: string
-    default: <REPLACE>
-  - name: gitHubRepositoryName
-    displayName: GitHub Repository Name
-    type: string
-    default: <REPLACE>
-
-variables:
-  - name: secretName
-    ${{ if eq(parameters.tooling, 'AzureDevOps')}}:
-      value: ADOPersonalAccessToken # When you use Azure DevOps, the Personal Access Token with the name 'ADOPersonalAccessToken' should be stored in the Key Vault
-    ${{ if eq(parameters.tooling, 'GitHub')}}:
-      value: GHPersonalAccessToken # When you use GitHub, the Personal Access Token with the name 'GHPersonalAccessToken' should be stored in the Key Vault
-
-jobs:
-  - job: completeSolution
-    displayName: Complete Solution
-    steps:
-      - task: AzureKeyVault@2
-        name: retrievePersonalAccessToken
-        displayName: Retrieve Personal Access Token
-        inputs:
-          azureSubscription: "<REPLACE>"
-          KeyVaultName: ${{parameters.keyVaultName}}
-          SecretsFilter: ${{variables.secretName}}
-          RunAsPreJob: true
-
-      - task: AzurePowerShell@5
-        name: startPolicyDefinitionRemediation
-        displayName: Start Policy Definition Remediation
-        inputs:
-          azureSubscription: "<REPLACE>"
-          ScriptType: "FilePath"
-          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Start-PolicyDefinitionRemediation.ps1"
-          azurePowerShellVersion: LatestVersion
-          pwsh: true
-
-      - task: AzurePowerShell@5
-        # Only run this task when there is a need to create a Bug in Azure DevOps
-        condition: and(eq(variables['startPolicyDefinitionRemediation.createWorkItem'], 'true'), eq('${{ parameters.tooling }}', 'AzureDevOps'))
-        name: createAzureDevOpsBug
-        displayName: Create Azure DevOps Bug
-        inputs:
-          azureSubscription: "<REPLACE>"
-          ScriptType: "FilePath"
-          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Create-AzureDevOpsBug.ps1"
-          ScriptArguments:
-            -FailedPolicyRemediationTasksJsonString '$(startPolicyDefinitionRemediation.failedPolicyRemediationTasksJsonString)'
-            -ModuleName ${{parameters.moduleName}}
-            -OrganizationName ${{parameters.azureDevOpsOrganizationName}}
-            -ProjectName ${{parameters.azureDevOpsProjectName}}
-            -PersonalAccessToken $(ADOPersonalAccessToken)
-            -TeamName '${{parameters.azureDevOpsTeamName}}'
-          azurePowerShellVersion: LatestVersion
-          pwsh: true
-
-      - task: AzurePowerShell@5
-        # Only run this task when there is a need to create an Issue in GitHub
-        condition: and(eq(variables['startPolicyDefinitionRemediation.createWorkItem'], 'true'), eq('${{ parameters.tooling }}', 'GitHub'))
-        name: createGitHubIssue
-        displayName: Create GitHub Issue
-        inputs:
-          azureSubscription: "<REPLACE>"
-          ScriptType: "FilePath"
-          ScriptPath: "$(System.DefaultWorkingDirectory)/Use PowerShell to remediate Non-Compliant Policy Definitions/solutions/Create-GitHubIssue.ps1"
-          ScriptArguments:
-            -FailedPolicyRemediationTasksJsonString '$(startPolicyDefinitionRemediation.failedPolicyRemediationTasksJsonString)'
-            -OrganizationName ${{parameters.gitHubOrganizationName}}
-            -RepositoryName ${{parameters.gitHubRepositoryName}}
-            -PersonalAccessToken $(GHPersonalAccessToken)
-          azurePowerShellVersion: LatestVersion
-          pwsh: true
+stages:
+  - stage: logAnalyticsTableRoles
+    displayName: "Log Analytics Table Roles"
+    jobs:
+      - job: grantTableRoles
+        displayName: "Grant Log Analytics Table Roles"
+        steps:
+          - task: AzurePowerShell@5
+            displayName: Grant Log Analytics Table Roles
+            inputs:
+              azureSubscription: ${{variables.serviceConnection}}
+              ScriptType: 'FilePath'
+              ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/Grant-LogAnalyticsTableRoles.ps1'
+              ScriptArguments:
+                -LogAnalyticsTableRolesConfigFilePath ${{variables.logAnalyticsTableRolesConfigFilePath}}
+              azurePowerShellVersion: 'LatestVersion'

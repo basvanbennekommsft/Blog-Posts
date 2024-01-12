@@ -1,0 +1,43 @@
+{
+    "logAnalyticsWorkspaces": [
+        {
+            "name": "ES-la-89e7647d-5411-40a8-b145-e11acdae6a26",
+            "resourceGroupName": "es-mgmt",
+            "subscriptionName": "Contoso",
+            "tableRoles": [
+                {
+                    "identity": {
+                        "name": "Identity group",
+                        "type": "Group",
+                        "objectId": "19eca6c2-244f-40bc-8928-d7f1e6cabd39"
+                    },
+                    "roleDefinition": {
+                        "name": "Reader",
+                        "Id": "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+                    },
+                    "tables": [
+                        "IdentityDirectoryEvents",
+                        "IdentityLogonEvents",
+                        "IdentityQueryEvents"
+                    ]
+                },
+                {
+                    "identity": {
+                        "name": "M365 group",
+                        "type": "Group",
+                        "objectId": "23e55592-8c51-4a5b-a72f-6ad2095590a1"
+                    },
+                    "roleDefinition": {
+                        "name": "Reader",
+                        "Id": "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+                    },
+                    "tables": [
+                        "Dynamics365Activity",
+                        "MicrosoftPurviewInformationProtection",
+                        "PowerPlatformDlpActivity"
+                    ]
+                }
+            ]
+        }
+    ]
+}

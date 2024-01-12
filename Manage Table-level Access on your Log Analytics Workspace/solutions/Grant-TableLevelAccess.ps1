@@ -1,185 +1,133 @@
 <#
-  .SYNOPSIS
-  This PowerShell script creates a Bug when there are one or multiple failed Remedation Tasks.
+.SYNOPSIS
+    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the configuration
+    in the 'logAnalyticsTableRoles.json' file.
 
-  .DESCRIPTION
-  The Create-AzureDevOpsBug.ps1 PowerShell script creates a Bug on the current Iteration of a team when one or
-  multiple Remediation Tasks failed. The Bug is formatted as an HTML table and contains information on the name
-  and Url properties. As a result, the team can easily locate and resolve the Remediation Tasks that failed.
+.DESCRIPTION
+    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the configuration
+    in the 'logAnalyticsTableRoles.json' file. Before creating the Role Assignments, the PowerShell script checks whether the input
+    is valid. Subsequently, it checks what Role Assignments do not exist. Based on this information, the missing Role Assignments
+    are created.
 
-  .PARAMETER FailedPolicyRemediationTasksJsonString
-  Specifies the JSON string that contains the objects of one or multiple failed Remediation Tasks.
-
-  .PARAMETER ModuleName
-  Specifies the name of the PowerShell module installed at the beginning of the PowerShell script.
-
-  .PARAMETER OrganizationName
-  Specifies the name of the Azure DevOps Organization.
-
-  .PARAMETER ProjectName
-  Specifies the name of the Azure DevOps Project.
-
-  .PARAMETER PersonalAccessToken
-  Specifies the Personal Access Token that is used for authentication purposes.
-
-  .PARAMETER TeamName
-  Specifies the name of the Azure DevOps team.
-
-  .EXAMPLE
-  Create-AzureDevOpsBug.ps1 `
-    -FailedPolicyRemediationTasksJsonString '<JSON string>'`
-    -ModuleName 'VSTeam' `
-    -OrganizationName 'bavanben' `
-    -ProjectName 'Contoso' `
-    -PersonalAccessToken '<secret string>' `
-    -TeamName 'Contoso Team'
-
-  .INPUTS
-  None.
-
-  .OUTPUTS
-  The Start-PolicyAssignmentRemediation.ps1 PowerShell script outputs multiple string values for logging purposes.
+.PARAMETER LogAnalyticsTableRolesConfigFilePath [string]
+    The path to the file in which the Log Analytics table-level Role Assignments are located.
 #>
 
-[CmdLetBinding()]
-Param (
-    [Parameter (Mandatory = $true)]
-    [String] $FailedPolicyRemediationTasksJsonString,
-
-    [Parameter (Mandatory = $true)]
-    [String] $ModuleName,
-
-    [Parameter (Mandatory = $true)]
-    [String] $OrganizationName,
-
-    [Parameter (Mandatory = $true)]
-    [String] $ProjectName,
-
-    [Parameter (Mandatory = $true)]
-    [String] $PersonalAccessToken,
-
-    [Parameter (Mandatory = $true)]
-    [String] $TeamName
+param(
+    [Parameter(mandatory = $True)]
+    [string]$LogAnalyticsTableRolesConfigFilePath
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-#region Install and import the PowerShell module
-Write-Output "`nInstall and import the '$($ModuleName)' PowerShell module"
-if (Get-Module | Where-Object { $_.Name -eq $ModuleName }) {
-    Write-Output "`The '$($ModuleName)' PowerShell module is already installed and imported"
-}
-else {
-    if (Get-Module -ListAvailable | Where-Object { $_.Name -eq $ModuleName }) {
-        Write-Output "`The '$($ModuleName)' PowerShell module is not yet imported"
-        try {
-            Import-Module $ModuleName -Force
-            Write-Output "The '$($ModuleName)' PowerShell module has been imported succesfully"
-        }
-        catch {
-            Write-Error $_
-        }
+#region Retrieve the content of the 'logAnalyticsTableRoles.json' file
+Write-Output "`nRetrieve the content of the '$($LogAnalyticsTableRolesConfigFilePath.Split('\')[-1])' file"
+$logAnalyticsTableRoles = Get-Content -Path $LogAnalyticsTableRolesConfigFilePath -Raw | ConvertFrom-Json
+#endregion
+
+#region Conduct multiple checks before creating the table-level Role Assignments
+Write-Output "`nConduct multiple checks before creating the table-level Role Assignments"
+$logAnalyticsWorkspaces = $logAnalyticsTableRoles.logAnalyticsWorkspaces
+$requiredRoleAssignments = @()
+
+foreach ($logAnalyticsWorkspace in $logAnalyticsWorkspaces) {
+    Set-AzContext -Subscription $logAnalyticsWorkspace.subscriptionName -Force | Out-Null
+
+    #Log Analytics workspace existence check
+    Write-Verbose "`n`tCheck whether the '$($logAnalyticsWorkspace.name)' Log Analytics workspace exists"
+    if ($existinglogAnalyticsWorkspace = Get-AzOperationalInsightsWorkspace -ResourceGroupName $logAnalyticsWorkspace.resourceGroupName -Name $logAnalyticsWorkspace.name -ErrorAction SilentlyContinue) {
+        Write-Verbose "`tThe '$($existinglogAnalyticsWorkspace.Name)' Log Analytics workspace does exist"
     }
     else {
-        Write-Output "`The '$($ModuleName)' PowerShell module is not yet installed and imported"
+        Write-Error "The '$($logAnalyticsWorkspace.name)' Log Analytics workspace does not exist so the PowerShell script is terminated"
+    }
+
+    $tableRoles = $logAnalyticsWorkspace.tableRoles
+    foreach ($tableRole in $tableRoles) {
+        #Identity existence check
+        Write-Verbose "`n`tCheck whether the '$($tableRole.identity.name)' $($tableRole.identity.type) exists"
+        if ($tableRole.identity.type -eq 'User') {
+            if ($existingUser = Get-AzADUser -ObjectId $tableRole.identity.objectId -ErrorAction SilentlyContinue) {
+                Write-Verbose "`tThe '$($existingUser.UserPrincipalName)' $($tableRole.identity.type) does exist"
+            }
+            else {
+                Write-Error "The '$($tableRole.identity.name)' $($tableRole.identity.type) does not exist so the PowerShell script is terminated"
+            }
+        }
+        elseif ($tableRole.identity.type -eq 'Group') {
+            if ($existingGroup = Get-AzADGroup -ObjectId $tableRole.identity.objectId -ErrorAction SilentlyContinue) {
+                Write-Verbose "`tThe '$($existingGroup.DisplayName)' $($tableRole.identity.type) does exist"
+            }
+            else {
+                Write-Error "The '$($tableRole.identity.name)' $($tableRole.identity.type) does not exist so the PowerShell script is terminated"
+            }
+        }
+        elseif ($tableRole.identity.type -eq 'Service Principal') {
+            if ($existingServicePrincipal = Get-AzADServicePrincipal -ObjectId $tableRole.identity.objectId -ErrorAction SilentlyContinue) {
+                Write-Verbose "`tThe '$($existingServicePrincipal.DisplayName)' $($tableRole.identity.type) does exist"
+            }
+            else {
+                Write-Error "The '$($tableRole.identity.name)' $($tableRole.identity.type) does not exist so the PowerShell script is terminated"
+            }
+        }
+        else {
+            Write-Error "The '$($tableRole.identity.type)' type is not supported so the PowerShell script is terminated"
+        }
+
+        # Table existence check
+        $existinglogAnalyticsWorkspaceTables = (Get-AzOperationalInsightsTable -ResourceGroupName $existinglogAnalyticsWorkspace.ResourceGroupName -WorkspaceName $existinglogAnalyticsWorkspace.Name).Name
+        $targetlogAnalyticsWorkspaceTables = $tableRole.tables
+        foreach ($targetlogAnalyticsWorkspaceTable in $targetlogAnalyticsWorkspaceTables) {
+            Write-Verbose "`n`tCheck whether the '$($targetlogAnalyticsWorkspaceTable)' table exists in the '$($existinglogAnalyticsWorkspace.Name)' Log Analytics workspace"
+            if ($targetlogAnalyticsWorkspaceTable -in $existinglogAnalyticsWorkspaceTables) {
+                Write-Verbose "`tThe '$($targetlogAnalyticsWorkspaceTable)' table does exist in the '$($existinglogAnalyticsWorkspace.Name)' Log Analytics workspace"
+                $requiredRoleAssignment = [PSCustomObject]@{
+                    ObjectId         = $tableRole.identity.objectId
+                    Scope            = "$($existinglogAnalyticsWorkspace.ResourceId)/tables/$($targetlogAnalyticsWorkspaceTable)"
+                    RoleDefinitionId = $tableRole.roleDefinition.Id
+                }
+                $requiredRoleAssignments += $requiredRoleAssignment
+            }
+            else {
+                Write-Error "The '$($targetlogAnalyticsWorkspaceTable)' table does not exist in the '$($existinglogAnalyticsWorkspace.Name)' Log Analytics workspace so the PowerShell script is terminated"
+            }
+        }
+    }
+}
+
+#region Check what table-level Role Assignments already exist
+Write-Output "`nCheck what table-level Role Assignments already exist"
+$toBeCreatedRoleAssignments = @()
+foreach ($requiredRoleAssignment in $requiredRoleAssignments) {
+    Write-Verbose "`n`tCheck whether the identity with objectId '$($requiredRoleAssignment.ObjectId)' has the Role Definition with id '$($requiredRoleAssignment.RoleDefinitionId)' assigned on the '$($requiredRoleAssignment.Scope.Split('/')[-1])' table"
+    if ($null -eq (Get-AzRoleAssignment -ObjectId $requiredRoleAssignment.ObjectId -Scope $requiredRoleAssignment.Scope -RoleDefinitionId $requiredRoleAssignment.RoleDefinitionId -ErrorAction SilentlyContinue)) {
+        Write-Verbose "`tThe Role Assignment does not exist and thus needs to be created"
+        $toBeCreatedRoleAssignments += $requiredRoleAssignment
+    }
+    else {
+        Write-Verbose "`tThe Role Assignment already exists"
+    }
+}
+Write-Output "Out of the '$($requiredRoleAssignments.Count)' required Role Assignments, '$($toBeCreatedRoleAssignments.Count)' Role Assignment(s) do(es) not exist"
+#endregion
+
+#region Create the table-level Role Assignments that are required
+if ($toBeCreatedRoleAssignments.Count -ne 0) {
+    Write-Output "`nCreate the new table-level Role Assignments"
+    foreach ($toBeCreatedRoleAssignment in $toBeCreatedRoleAssignments) {
+        Write-Verbose "`n`tAdd the Role Definition with id '$($toBeCreatedRoleAssignment.RoleDefinitionId)' to the identity with objectId '$($toBeCreatedRoleAssignment.ObjectId)' on the '$($toBeCreatedRoleAssignment.Scope.Split('/')[-1])' table"
         try {
-            Install-Module -Name $ModuleName -Force
-            Import-Module $ModuleName -Force
-            Write-Output "The '$($ModuleName)' PowerShell module has been installed and imported succesfully"
+            New-AzRoleAssignment -ObjectId $toBeCreatedRoleAssignment.ObjectId -Scope $toBeCreatedRoleAssignment.Scope -RoleDefinitionId $toBeCreatedRoleAssignment.RoleDefinitionId | Out-Null
+            Write-Verbose "`tCreated the new table-level Role Assignment"
         }
         catch {
-            Write-Error $_
+            Write-Error "Failed to create the new table-level Role Assignment. Error: '$($Error)'"
         }
     }
+    Write-Output "Successfully created the new table-level Role Assignments"
 }
-#endregion
-
-#region Authenticate to the Azure DevOps Organization and Project"
-Write-Output "`nAuthenticate to the '$($ProjectName)' Project located in the '$($OrganizationName)' Organization"
-try {
-    Set-VSTeamAccount -Account $OrganizationName -PersonalAccessToken $PersonalAccessToken
-    Set-VSTeamDefaultProject -Project $ProjectName
-    Write-Output "Succesfully authenticated to the '$($ProjectName)' Project located in the '$($OrganizationName)' Organization"
-}
-catch {
-    Write-Error $_
-}
-#endregion
-
-#region Retrieve the Iteration Paths of the team
-Write-Output "`nRetrieve the Iterations Paths of the '$($TeamName)' team"
-try {
-    $authenticationToken = [System.Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PersonalAccessToken"))
-    $headers = @{
-        "Authorization" = [String]::Format("Basic {0}", $authenticationToken)
-        "Content-Type"  = "application/json"
-    }
-    $uri = "https://dev.azure.com/{0}/{1}/{2}/_apis/work/teamsettings/iterations?api-version=5.1" -f $OrganizationName, $ProjectName, $TeamName
-    $iterationPaths = (Invoke-RestMethod -Method Get -Headers $headers -Uri $uri).value
-    Write-Output "Succesfully retrieved the Iterations Paths of the '$($TeamName)' team"
-}
-catch {
-    Write-Error $_
-}
-#endregion
-
-#region Create the HTML table that will be included in the Bug
-Write-Output "`nCreate the HTML table that will be included in the Bug"
-$failedPolicyRemediationTasks = ConvertFrom-Json -InputObject $FailedPolicyRemediationTasksJsonString
-
-Write-Verbose "For each failed Remediation Task object, add the 'Remediation Task Url' property"
-foreach ($failedPolicyRemediationTask in $failedPolicyRemediationTasks) {
-    $staticUrlComponent = "https://portal.azure.com/#view/Microsoft_Azure_Policy/ManageRemediationTaskBlade/assignmentId/"
-    $variableUrlComponent = "$($failedPolicyRemediationTask.'Policy Assignment Id'.Replace("/","%2F"))/remediationTaskId/$($failedPolicyRemediationTask.'Remediation Task Id'.Replace("/","%2F"))"
-    Add-Member -InputObject $failedPolicyRemediationTask -NotePropertyName 'Remediation Task Url' -NotePropertyValue "$($staticUrlComponent)$($variableUrlComponent)"
-}
-
-Write-Verbose "Build the header, pre-content and post-content of the HTML table"
-$header = @"
-<style>
-TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;}
-TH {text-align: left; border-width: 1px; padding: 3px; border-style: solid; border-color: black; background-color: #6495ED;}
-TD {text-align: left; border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
-</style>
-"@
-$postContent = "<H4><i>Table 1: Failed Remediation Tasks</i></H4>"
-
-Write-Verbose "Build the HTML table"
-$htmlParams = @{
-    'Property'    = 'Remediation Task Name', 'Remediation Task Url', 'Provisioning State'
-    'PostContent' = $postContent
-    'Head'        = $header
-}
-$htmlTable = $failedPolicyRemediationTasks | ConvertTo-Html @htmlParams
-
-Write-Verbose "Add the HTML table to the Repro Steps of the Bug"
-$ReproSteps = @"
-$htmlTable
-"@
-Write-Output "Succesfully created the HTML table that will be included in the Bug"
-#endregion
-
-#region Create a Bug on the current Iteration of the team
-Write-Verbose "Set the variables that are used during the creation of the Bug"
-$title = ('Failed Remediation Tasks - {0}' -f $(Get-Date -Format 'yyyyMMdd'))
-$description = 'As you can see in Table 1, one or more Remediation Tasks failed. Please investigate these in more detail.'
-$additionalFields = @{'Microsoft.VSTS.TCM.ReproSteps' = $ReproSteps }
-$currentIterationPath = $iterationPaths | Where-Object -FilterScript { $_.attributes.timeFrame -eq 'current' }
-
-Write-Output "`nCreate a Bug on the '$($currentIterationPath.name)' Iteration of the '$($TeamName)' team"
-try {
-    $workItemParams = @{
-        'Title'            = $title
-        'Description'      = $description
-        'WorkItemType'     = 'Bug'
-        'AdditionalFields' = $additionalFields
-        'IterationPath'    = $currentIterationPath.path
-    }
-    Add-VSTeamWorkItem @workItemParams | Out-Null
-    Write-Output "Succesfully created a Bug on the '$($currentIterationPath.name)' Iteration of the '$($TeamName)' team"
-}
-catch {
-    Write-Error $_
+else {
+    Write-Output "`nEnd the PowerShell script since '$($toBeCreatedRoleAssignments.Count)' new Role Assignments need to be created"
 }
 #endregion
