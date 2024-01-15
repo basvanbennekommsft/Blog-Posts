@@ -1,40 +1,51 @@
 <#
 .SYNOPSIS
-    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the configuration
-    in the 'logAnalyticsTableRoles.json' file.
+    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the input
+    of the 'parameters.json' file.
 
 .DESCRIPTION
-    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the configuration
-    in the 'logAnalyticsTableRoles.json' file. Before creating the Role Assignments, the PowerShell script checks whether the input
-    is valid. Subsequently, it checks what Role Assignments do not exist. Based on this information, the missing Role Assignments
+    This PowerShell script creates table-level Role Assignments on one or more Log Analytics workspaces, based on the input
+    of the 'parameters.json' file. Before creating the Role Assignments, the PowerShell script checks whether the input is
+    valid. Subsequently, it checks which Role Assignments do not exist. Based on this information, the missing Role Assignments
     are created.
 
-.PARAMETER LogAnalyticsTableRolesConfigFilePath [string]
+.PARAMETER logAnalyticsTableRolesFilePath [string]
     The path to the file in which the Log Analytics table-level Role Assignments are located.
+
+  .EXAMPLE
+  Create-AzureDevOpsBug.ps1 `
+    -logAnalyticsTableRolesFilePath '<File path to the parameters.json file>'
+
+  .INPUTS
+  None.
+
+  .OUTPUTS
+  None.
 #>
 
-param(
-    [Parameter(mandatory = $True)]
-    [string]$LogAnalyticsTableRolesConfigFilePath
+[CmdLetBinding()]
+Param (
+    [Parameter(Mandatory = $true)]
+    [String]$logAnalyticsTableRolesFilePath
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-#region Retrieve the content of the 'logAnalyticsTableRoles.json' file
-Write-Output "`nRetrieve the content of the '$($LogAnalyticsTableRolesConfigFilePath.Split('\')[-1])' file"
-$logAnalyticsTableRoles = Get-Content -Path $LogAnalyticsTableRolesConfigFilePath -Raw | ConvertFrom-Json
+#region Retrieve the input from the 'parameters.json' file
+Write-Output "`nRetrieve the input from the '$($logAnalyticsTableRolesFilePath.Split('/')[-1])' file"
+$logAnalyticsTableRoles = Get-Content -Path $logAnalyticsTableRolesFilePath -Raw | ConvertFrom-Json
 #endregion
 
-#region Conduct multiple checks before creating the table-level Role Assignments
-Write-Output "`nConduct multiple checks before creating the table-level Role Assignments"
+#region Conduct different checks before creating the table-level Role Assignments
+Write-Output "`nConduct different checks before creating the table-level Role Assignments"
 $logAnalyticsWorkspaces = $logAnalyticsTableRoles.logAnalyticsWorkspaces
 $requiredRoleAssignments = @()
 
 foreach ($logAnalyticsWorkspace in $logAnalyticsWorkspaces) {
     Set-AzContext -Subscription $logAnalyticsWorkspace.subscriptionName -Force | Out-Null
 
-    #Log Analytics workspace existence check
+    # Check whether the Log Analytics workspaces exist
     Write-Verbose "`n`tCheck whether the '$($logAnalyticsWorkspace.name)' Log Analytics workspace exists"
     if ($existinglogAnalyticsWorkspace = Get-AzOperationalInsightsWorkspace -ResourceGroupName $logAnalyticsWorkspace.resourceGroupName -Name $logAnalyticsWorkspace.name -ErrorAction SilentlyContinue) {
         Write-Verbose "`tThe '$($existinglogAnalyticsWorkspace.Name)' Log Analytics workspace does exist"
@@ -45,7 +56,7 @@ foreach ($logAnalyticsWorkspace in $logAnalyticsWorkspaces) {
 
     $tableRoles = $logAnalyticsWorkspace.tableRoles
     foreach ($tableRole in $tableRoles) {
-        #Identity existence check
+        # Check whether the identities exist
         Write-Verbose "`n`tCheck whether the '$($tableRole.identity.name)' $($tableRole.identity.type) exists"
         if ($tableRole.identity.type -eq 'User') {
             if ($existingUser = Get-AzADUser -ObjectId $tableRole.identity.objectId -ErrorAction SilentlyContinue) {
@@ -75,7 +86,7 @@ foreach ($logAnalyticsWorkspace in $logAnalyticsWorkspaces) {
             Write-Error "The '$($tableRole.identity.type)' type is not supported so the PowerShell script is terminated"
         }
 
-        # Table existence check
+        # Check whether the tables exist
         $existinglogAnalyticsWorkspaceTables = (Get-AzOperationalInsightsTable -ResourceGroupName $existinglogAnalyticsWorkspace.ResourceGroupName -WorkspaceName $existinglogAnalyticsWorkspace.Name).Name
         $targetlogAnalyticsWorkspaceTables = $tableRole.tables
         foreach ($targetlogAnalyticsWorkspaceTable in $targetlogAnalyticsWorkspaceTables) {

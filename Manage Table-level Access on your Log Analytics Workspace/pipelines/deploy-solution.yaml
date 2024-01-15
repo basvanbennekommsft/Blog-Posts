@@ -1,25 +1,11 @@
-# This pipeline aims to deploy table-level Role Assignments
-name: $(SourceBranchName).$(date:yyyy).$(date:MM).$(date:dd)$(rev:.r)
-
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    include:
-    - scripts/Grant-LogAnalyticsTableRoles.ps1
-    - input/logAnalyticsTableRoles.json
-
-variables:
-  - name: vmImageName
-    value: 'ubuntu-latest'
-  - name: serviceConnection
-    value: 'zm-p-g-spn-acrp-azdo-001'
-  - name: logAnalyticsTableRolesConfigFilePath
-    value: '$(System.DefaultWorkingDirectory)/input/logAnalyticsTableRoles.json'
+trigger: none
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: windows-latest
+
+variables:
+  - name: serviceConnection
+    value: "<REPLACE>"
 
 stages:
   - stage: logAnalyticsTableRoles
@@ -33,7 +19,7 @@ stages:
             inputs:
               azureSubscription: ${{variables.serviceConnection}}
               ScriptType: 'FilePath'
-              ScriptPath: '$(System.DefaultWorkingDirectory)/scripts/Grant-LogAnalyticsTableRoles.ps1'
+              ScriptPath: "$(System.DefaultWorkingDirectory)/Manage Table-level Access on your Log Analytics Workspace/solutions/Grant-TableLevelAccess.ps1"
               ScriptArguments:
-                -LogAnalyticsTableRolesConfigFilePath ${{variables.logAnalyticsTableRolesConfigFilePath}}
+                -logAnalyticsTableRolesFilePath "$(System.DefaultWorkingDirectory)/Manage Table-level Access on your Log Analytics Workspace/parameters/parameters.json"
               azurePowerShellVersion: 'LatestVersion'
